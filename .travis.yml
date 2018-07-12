@@ -12,31 +12,57 @@ env:
 
 jobs:
   include:
-    - stage: BuildMaster
+    - stage: BuildMaster-amd64
+      before_install:
+        - /bin/bash pre_install
+      script:
+        # Build the applicaiton
+        - docker build --no-cache -f Dockerfile.amd64 -t ${DOCKERHUB_LIVE}:amd64-${TRAVIS_COMMIT} .
+        # Tag the build to latest
+        - docker tag ${DOCKERHUB_LIVE}:amd64-${TRAVIS_COMMIT} ${DOCKERHUB_LIVE}:amd64-latest
+        # Login to DockerHub
+        - echo $DOCKERPASS | docker login -u $DOCKERUSER --password-stdin
+        # Push the tags
+        - docker push ${DOCKERHUB_LIVE}:amd64-${TRAVIS_COMMIT}
+        - docker push ${DOCKERHUB_LIVE}:amd64-latest
+    - stage: BuildMaster-armhf
+      before_install:
+        - /bin/bash pre_install
+      script:
+        # Grab the qemu binaries
+        - wget https://s3-us-west-2.amazonaws.com/taisun-builds/qemu/qemu-arm-static
+        - chmod +x qemu-*
+        # Build the applicaiton
+        - docker build --no-cache -f Dockerfile.armhf -t ${DOCKERHUB_LIVE}:arm32v6-${TRAVIS_COMMIT} .
+        # Tag the build to latest
+        - docker tag ${DOCKERHUB_LIVE}:arm32v6-${TRAVIS_COMMIT} ${DOCKERHUB_LIVE}:arm32v6-latest
+        # Login to DockerHub
+        - echo $DOCKERPASS | docker login -u $DOCKERUSER --password-stdin
+        # Push the tags
+        - docker push ${DOCKERHUB_LIVE}:arm32v6-${TRAVIS_COMMIT}
+        - docker push ${DOCKERHUB_LIVE}:arm32v6-latest
+    - stage: BuildMaster-aarch
       before_install:
         - /bin/bash pre_install
       script:
         # Grab the qemu binaries
         - wget https://s3-us-west-2.amazonaws.com/taisun-builds/qemu/qemu-aarch64-static
-        - wget https://s3-us-west-2.amazonaws.com/taisun-builds/qemu/qemu-arm-static
         - chmod +x qemu-*
-        # Build the applicaiton against the 3 architectures
-        - docker build --no-cache -f Dockerfile.amd64 -t ${DOCKERHUB_LIVE}:amd64-${TRAVIS_COMMIT} .
-        - docker build --no-cache -f Dockerfile.armhf -t ${DOCKERHUB_LIVE}:arm32v6-${TRAVIS_COMMIT} .
+        # Build the applicaiton
         - docker build --no-cache -f Dockerfile.aarch64 -t ${DOCKERHUB_LIVE}:arm64v8-${TRAVIS_COMMIT} .
-        # Tag these builds to latest
-        - docker tag ${DOCKERHUB_LIVE}:amd64-${TRAVIS_COMMIT} ${DOCKERHUB_LIVE}:amd64-latest
-        - docker tag ${DOCKERHUB_LIVE}:arm32v6-${TRAVIS_COMMIT} ${DOCKERHUB_LIVE}:arm32v6-latest
+        # Tag the build to latest
         - docker tag ${DOCKERHUB_LIVE}:arm64v8-${TRAVIS_COMMIT} ${DOCKERHUB_LIVE}:arm64v8-latest
         # Login to DockerHub
         - echo $DOCKERPASS | docker login -u $DOCKERUSER --password-stdin
-        # Push all of the tags
-        - docker push ${DOCKERHUB_LIVE}:amd64-${TRAVIS_COMMIT}
-        - docker push ${DOCKERHUB_LIVE}:arm32v6-${TRAVIS_COMMIT}
+        # Push the tags
         - docker push ${DOCKERHUB_LIVE}:arm64v8-${TRAVIS_COMMIT}
-        - docker push ${DOCKERHUB_LIVE}:amd64-latest
-        - docker push ${DOCKERHUB_LIVE}:arm32v6-latest
         - docker push ${DOCKERHUB_LIVE}:arm64v8-latest
+    - stage: BuildMaster-manifest-push
+      before_install:
+        - /bin/bash pre_install
+      script:
+        # Login to DockerHub
+        - echo $DOCKERPASS | docker login -u $DOCKERUSER --password-stdin
         # Generate local manifests for latest and at commit
         - docker manifest create ${DOCKERHUB_LIVE}:latest ${DOCKERHUB_LIVE}:amd64-latest ${DOCKERHUB_LIVE}:arm32v6-latest ${DOCKERHUB_LIVE}:arm64v8-latest
         - docker manifest annotate ${DOCKERHUB_LIVE}:latest ${DOCKERHUB_LIVE}:arm32v6-latest --os linux --arch arm
